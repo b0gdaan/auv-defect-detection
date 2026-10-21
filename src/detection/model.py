@@ -52,7 +52,7 @@ def build_model(pretrained: bool = True, freeze_backbone: bool = False) -> nn.Mo
 
 def load_weights(model: nn.Module, path: str, device: str = "cpu") -> nn.Module:
     """Load saved checkpoint into model."""
-    state = torch.load(path, map_location=device)
+    state = torch.load(path, map_location=device, weights_only=True)
     # Support both raw state_dict and checkpoint dicts
     if "model_state_dict" in state:
         state = state["model_state_dict"]

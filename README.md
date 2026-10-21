@@ -1,10 +1,10 @@
 # Glaideron AUV — Underwater Defect Detection System
 
-> Bachelor's thesis project · SamGTU · 2023  
-> Developed in cooperation with [NPK "Network-Centric Platforms"](https://network-centric.ru/)  
+> Bachelor's thesis project · SamGTU · 2023
+> Developed in cooperation with [NPK "Network-Centric Platforms"](https://network-centric.ru/)
 > RZD Grant No. 2/22-РЖД/2022
 
-Real-time vision system for detecting structural defects in underwater hydraulic infrastructure (bridges, dams, piers), deployed on the **Glaideron** autonomous underwater vehicle.
+Research prototype associated with a bachelor’s thesis on an optoelectronic system for the **Glaideron** AUV. The public code combines video streaming with four-class, frame-level image classification; it does not localize defects with bounding boxes or masks.
 
 ---
 
@@ -19,7 +19,7 @@ The system streams live video from two cameras mounted on the AUV to a shore sta
 | `empty_joint` | Missing mortar in brick/stone joints |
 | `normal` | No visible damage |
 
-**Detection accuracy: 84 % top-1** on a 200-frame held-out test set.
+Earlier project documentation reports **84% top-1 accuracy on 200 frames**. The public repository does not include the trained defect checkpoint, dataset split or evaluation outputs needed to reproduce that figure. Treat it as a reported result, not a benchmark of a fresh checkout.
 
 ---
 
@@ -68,11 +68,9 @@ src/
 └── detection/
     ├── classes.py           # Defect class definitions
     ├── model.py             # MobileNetV2-based CNN
-    ├── detector.py          # Inference pipeline + OpenCV overlay
-    └── main.py             # CLI entry point
+    └── detector.py          # Inference pipeline + OpenCV overlay
 
-notebooks/
-└── defect_detection_training.ipynb   # Model training walkthrough
+# CLI entry point: src/main.py
 
 hardware/
 └── setup.md                # Wiring, network config, measured performance
@@ -93,7 +91,7 @@ pip install -r requirements.txt
 
 **Run defect detector on a local video file (no AUV needed):**
 ```bash
-python -m src.main demo --video sample_footage.mp4
+python -m src.main demo --video sample_footage.mp4 --weights weights/defectoscope.pth
 ```
 
 **AUV side (Raspberry Pi 4):**
@@ -108,28 +106,33 @@ python -m src.main shore --weights weights/defectoscope.pth
 
 ---
 
+The video and trained checkpoint in the commands are user-supplied; neither is
+included. Without defect-specific weights, the replacement classifier head is
+untrained and its labels are not meaningful. The code runs inference on the shore
+station in `shore` mode; the Raspberry Pi captures and transmits video.
+
 ## Model
 
-- **Backbone:** MobileNetV2 (ImageNet pretrained)  
-- **Head:** Dropout → Linear(1280→128) → ReLU → Dropout → Linear(128→4)  
-- **Training data:** ~1 200 labelled frames from AUV footage  
-- **Augmentation:** horizontal flip, brightness ±30 %, CLAHE (turbid water contrast)  
-- **Inference time:** ~115 ms on Raspberry Pi 4 (CPU only)
+- **Backbone:** MobileNetV2 (ImageNet pretrained)
+- **Head:** Dropout → Linear(1280→128) → ReLU → Dropout → Linear(128→4)
+- **Training data:** ~1 200 labelled frames from AUV footage
+- **Augmentation:** horizontal flip, brightness ±30 %, CLAHE (turbid water contrast)
+- **Reported inference time:** ~115 ms on Raspberry Pi 4; no reproducible hardware benchmark is bundled
 
 ---
 
 ## Compression
 
-Frames are JPEG-encoded then further compressed with **Huffman coding** before transmission, reducing payload size to **61–74 %** of the original JPEG.  
+Frames are JPEG-encoded and passed through **Huffman coding** before transmission. Measure the complete packet (including the code table) on representative footage: additional compression of JPEG is not guaranteed to reduce network traffic.
 See [`src/compression.py`](src/compression.py) for the full implementation.
 
 ---
 
 ## References
 
-- [Glaideron AUV — sea trials report](https://network-centric.ru/news/завершены-испытания-глайдерона/) (Russian)  
-- [Intelligent Defectoscope product page](https://network-centric.ru/products/интеллектуальный-дефектоскоп/) (Russian)  
-- Field demo videos: [trial 1](https://www.youtube.com/watch?v=iciuMopU_TA) · [trial 2](https://www.youtube.com/watch?v=s7XKP502s5U)  
+- [Glaideron AUV — sea trials report](https://network-centric.ru/news/завершены-испытания-глайдерона/) (Russian)
+- [Intelligent Defectoscope product page](https://network-centric.ru/products/интеллектуальный-дефектоскоп/) (Russian)
+- Field demo videos: [trial 1](https://www.youtube.com/watch?v=iciuMopU_TA) · [trial 2](https://www.youtube.com/watch?v=s7XKP502s5U)
 - Full thesis (Russian): [`docs/thesis_ru.pdf`](docs/thesis_ru.pdf)
 
 ---
@@ -137,3 +140,11 @@ See [`src/compression.py`](src/compression.py) for the full implementation.
 ## Tech Stack
 
 `Python 3.10` · `PyTorch 2.0` · `OpenCV` · `torchvision` · `Raspberry Pi 4` · `MobileNetV2`
+
+
+## Security limits
+
+The streaming protocol is a research prototype without authentication or encryption.
+Use only on an isolated, trusted network. It is not hardened against oversized or
+malformed packets. Load only trusted model files; checkpoint loading uses PyTorch's
+restricted `weights_only=True` mode. This repository is not a safety-certified inspection system.
